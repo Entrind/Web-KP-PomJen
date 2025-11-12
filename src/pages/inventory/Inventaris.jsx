@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api";
+import { api } from "../../api";
 import { useState } from "react";
 
 export default function Inventaris() {
