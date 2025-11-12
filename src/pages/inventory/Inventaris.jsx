@@ -1,29 +1,23 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../api";
-import { useState } from "react";
-
 export default function Inventaris() {
-  const qc = useQueryClient();
-  const { data } = useQuery({ queryKey:["assets"], queryFn: async () => (await api.get("/assets")).data });
-  const [draft, setDraft] = useState({ code:"", name:"", type:"sensor", site_id:"POS-AB01", status:"aktif", notes:"" });
-  const add = useMutation({
-    mutationFn: async (payload) => (await api.post("/assets", payload)).data,
-    onSuccess: ()=> qc.invalidateQueries({ queryKey:["assets"] })
-  });
-
+  const rows = [
+    { id: 1, code: "A-001", name: "Ultrasonic A02YYUW", type: "sensor", site_id: "POS-AB01", status: "aktif" },
+  ];
   return (
-    <div style={{ display:"grid", gap:12 }}>
-      <h3>Inventaris</h3>
-      <div style={{ display:"flex", gap:8 }}>
-        <input placeholder="Kode" value={draft.code} onChange={e=>setDraft({...draft, code:e.target.value})}/>
-        <input placeholder="Nama" value={draft.name} onChange={e=>setDraft({...draft, name:e.target.value})}/>
-        <button onClick={()=> add.mutate(draft)}>Tambah</button>
-      </div>
-      <table width="100%">
-        <thead><tr><th>Kode</th><th>Nama</th><th>Tipe</th><th>Site</th><th>Status</th></tr></thead>
+    <div className="bg-white border rounded-xl p-4 shadow-sm">
+      <h3 className="font-semibold text-slate-800 mb-3">Inventaris</h3>
+      <table className="w-full text-sm">
+        <thead className="text-left text-slate-500">
+          <tr><th>Kode</th><th>Nama</th><th>Tipe</th><th>Site</th><th>Status</th></tr>
+        </thead>
         <tbody>
-          {(data||[]).map(a=>(
-            <tr key={a.id}><td>{a.code}</td><td>{a.name}</td><td>{a.type}</td><td>{a.site_id}</td><td>{a.status}</td></tr>
+          {rows.map(a => (
+            <tr key={a.id} className="border-t">
+              <td className="py-1.5">{a.code}</td>
+              <td>{a.name}</td>
+              <td>{a.type}</td>
+              <td>{a.site_id}</td>
+              <td>{a.status}</td>
+            </tr>
           ))}
         </tbody>
       </table>
