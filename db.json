@@ -1,0 +1,18 @@
+{
+  "sites": [
+    { "id": "POS-AB01", "name": "Pos AB01", "river_name": "Sungai 1 ", "lat": -5.15, "lng": 119.45, "mount_height_cm": 300 }
+  ],
+  "devices": [
+    { "id": "ULTRA-001", "site_id": "POS-AB01", "name": "A02YYUW-01", "fw": "1.0.0", "last_seen": "2025-10-22T05:05:00Z" }
+  ],
+  "readings": [
+    { "id": 1, "device_id": "ULTRA-001", "ts": "2025-10-22T05:00:00Z", "distance_cm": 123.4, "water_level_cm": 106.6, "battery_v": 3.9, "rssi": -65 },
+    { "id": 2, "device_id": "ULTRA-001", "ts": "2025-10-22T05:05:00Z", "distance_cm": 124.0, "water_level_cm": 176.0, "battery_v": 3.88, "rssi": -66 },
+    { "id": 3, "device_id": "ULTRA-001", "ts": "2025-10-22T05:10:00Z", "distance_cm": 124.0, "water_level_cm": 126.0, "battery_v": 3.88, "rssi": -66 },
+    { "id": 4, "device_id": "ULTRA-001", "ts": "2025-10-22T05:15:00Z", "distance_cm": 124.0, "water_level_cm": 96.0, "battery_v": 3.88, "rssi": -66 },
+    { "id": 5, "device_id": "ULTRA-001", "ts": "2025-10-22T05:20:00Z", "distance_cm": 124.0, "water_level_cm": 6.0, "battery_v": 3.8, "rssi": -66 }
+  ],
+  "assets": [
+    { "id": 1, "code": "A-001", "name": "Ultrasonic A02YYUW", "type": "sensor", "site_id": "POS-AB01", "status": "aktif", "notes": "terpasang 2025-10-20" }
+  ]
+}
