@@ -14,11 +14,9 @@ import {
 // Ubah sesuai jarak riil pemasangan sensor
 const MOUNT_HEIGHT_CM = 220;
 
-// ID Google Sheet dan URL CSV export
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
-// Hitung status berdasarkan tinggi air (sama seperti di Overview.jsx)
 function getStatusLevel(waterLevel, mountHeight) {
   const ratio = (waterLevel / mountHeight) * 100;
   if (ratio < 60) return "normal";
@@ -32,9 +30,6 @@ const statusLabelMap = {
   siaga: "Siaga",
 };
 
-// Parse CSV dari Google Sheets
-// Format kolom yang dipakai: A=Datetime, B=Epoch, C=Distance_cm
-// (kolom D diabaikan / boleh dihapus dari sheets)
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
@@ -52,12 +47,10 @@ function parseSheetCsv(text) {
       const distance_cm = Number(distanceStr.replace(",", "."));
       if (Number.isNaN(distance_cm)) return null;
 
-      // Tentukan timestamp dari epoch kalau valid, kalau tidak pakai string datetime
       let ts;
       if (!Number.isNaN(epochSec) && epochSec > 0) {
         ts = new Date(epochSec * 1000);
       } else {
-        // parse "dd-mm-yyyy HH:MM:SS"
         const [datePart, timePart] = (datetimeStr || "").split(" ");
         if (!datePart || !timePart) return null;
         const [day, month, year] = datePart.split("-");
@@ -102,14 +95,17 @@ export default function DetailPos() {
       try {
         setLoading(true);
         setError("");
+
         const res = await fetch(SHEET_CSV_URL);
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const text = await res.text();
         const parsed = parseSheetCsv(text);
+
         if (!cancelled) {
-          setRows(parsed);
+          const latest30 = parsed.slice(-30);
+
+          setRows(latest30);
         }
       } catch (err) {
         if (!cancelled) {
@@ -122,7 +118,6 @@ export default function DetailPos() {
 
     load();
 
-    // auto-refresh tiap 1 menit
     const interval = setInterval(load, 60_000);
     return () => {
       cancelled = true;
@@ -130,13 +125,11 @@ export default function DetailPos() {
     };
   }, []);
 
-  // Data untuk grafik
   const chartData = rows.map((r) => ({
     timeLabel: r.timeLabel,
     water_level_cm: r.water_level_cm,
   }));
 
-  // Tabel: terbaru di atas
   const tableData = [...rows].reverse();
 
   return (

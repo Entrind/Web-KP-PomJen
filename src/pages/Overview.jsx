@@ -2,17 +2,15 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusPill from "../components/StatusPill";
 
-// mount_height_cm = jarak sensor ke dasar (cm)
+// Jarak sensor -> dasar (H) dalam 
+// Ubah sesuai jarak riil pemasangan sensor
 const sites = [
   { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 220 }
 ];
 
-// ID Google Sheet dan URL CSV export
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
-// Parse CSV dari Google Sheets
-// Kolom: A=Datetime, B=Epoch, C=Distance_cm, D=Status
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
@@ -87,7 +85,6 @@ export default function Overview() {
 
     load();
 
-    // opsional: refresh tiap 60 detik
     const interval = setInterval(load, 60_000);
     return () => {
       cancelled = true;
