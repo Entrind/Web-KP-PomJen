@@ -1,81 +1,190 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusPill from "../components/StatusPill";
 
+// mount_height_cm = jarak sensor ke dasar (cm)
 const sites = [
-  { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 100 } // mount_height_cm adalah jarak pemasangan sensor dari dasar sungai
-] 
+  { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 220 }
+];
 
-const lastReading = {
-  site_id: "1",
-  ts: "2025-11-12T09:00:00Z",
-  distance_cm: 16,
-  battery_v: 3.9,
-  rssi: -65
-};
+// ID Google Sheet dan URL CSV export
+const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
+const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+
+// Parse CSV dari Google Sheets
+// Kolom: A=Datetime, B=Epoch, C=Distance_cm, D=Status
+function parseSheetCsv(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length === 0) return [];
+
+  return lines
+    .map((line) => {
+      const cols = line.split(",");
+      if (cols.length < 4) return null;
+
+      const datetimeStr = cols[0]?.trim();
+      const epochStr = cols[1]?.trim();
+      const distanceStr = cols[2]?.trim();
+      const status = cols[3]?.trim();
+
+      const epochSec = Number(epochStr);
+      const distance_cm = Number(distanceStr.replace(",", "."));
+      if (Number.isNaN(distance_cm)) return null;
+
+      let ts;
+      if (!Number.isNaN(epochSec) && epochSec > 0) {
+        ts = new Date(epochSec * 1000);
+      } else {
+        const [datePart, timePart] = (datetimeStr || "").split(" ");
+        if (!datePart || !timePart) return null;
+        const [day, month, year] = datePart.split("-");
+        ts = new Date(`${year}-${month}-${day}T${timePart}`);
+      }
+      if (Number.isNaN(ts.getTime())) return null;
+
+      return {
+        ts,
+        status,
+        distance_cm,
+      };
+    })
+    .filter(Boolean);
+}
 
 function getStatusLevel(waterLevel, mountHeight) {
   const ratio = (waterLevel / mountHeight) * 100;
-
   if (ratio < 60) return "normal";
   if (ratio < 85) return "waspada";
   return "siaga";
 }
 
 export default function Overview() {
+  const [lastReading, setLastReading] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch(SHEET_CSV_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        const parsed = parseSheetCsv(text);
+        if (!cancelled) {
+          const latest = parsed.length > 0 ? parsed[parsed.length - 1] : null;
+          setLastReading(latest);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err.message || "Gagal mengambil data dari Google Sheets");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    // opsional: refresh tiap 60 detik
+    const interval = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const site = sites[0];
+
+  let waterLevelCm = null;
+  let statusLevel = "normal";
+  let lastTimeLabel = "";
+
+  if (lastReading) {
+    waterLevelCm = Math.max(site.mount_height_cm - lastReading.distance_cm, 0);
+    statusLevel = getStatusLevel(waterLevelCm, site.mount_height_cm);
+    lastTimeLabel = lastReading.ts.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  }
+
   return (
     <div className="grid gap-6">
-
       <section className="grid md:grid-cols-2 gap-4">
-        {sites.map((s) => {
-          const waterLevelCm = Math.max(
-            s.mount_height_cm - lastReading.distance_cm,
-            0
-          );
+        <div className="bg-white border rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-slate-800">{site.name}</h3>
+            {!loading && !error && waterLevelCm !== null && (
+              <StatusPill level={statusLevel} />
+            )}
+            <div className="ml-auto text-xs text-slate-500">ID: {site.id}</div>
+          </div>
 
-          const status = getStatusLevel(waterLevelCm, s.mount_height_cm);
+          <div className="text-sm text-slate-600">
+            Lokasi: {site.river_name}
+          </div>
 
-          return (
-            <div key={s.id} className="bg-white border rounded-xl p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-slate-800">{s.name}</h3>
-                <StatusPill level={status} />
-                <div className="ml-auto text-xs text-slate-500">ID: {s.id}</div>
-              </div>
+          <div className="mt-3 text-sm text-slate-600">
+            {loading && "Memuat data dari Google Sheets..."}
+            {error && !loading && (
+              <span className="text-red-600">
+                Gagal memuat data: {error}
+              </span>
+            )}
+            {!loading && !error && waterLevelCm !== null && (
+              <>
+                Tinggi Air: <b>{waterLevelCm.toFixed(1)} cm</b>
+              </>
+            )}
+            {!loading && !error && waterLevelCm === null && (
+              <>Belum ada data dari Google Sheets.</>
+            )}
+          </div>
 
-              <div className="text-sm text-slate-600">
-                Lokasi: {s.river_name}
-              </div>
-              <div className="mt-3 text-sm text-slate-600">
-                Tinggi Air: <b>{waterLevelCm} cm</b>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                <Link
-                  to={`/sites/${s.id}`}
-                  className="text-blue-700 hover:underline text-sm"
-                >
-                  Detail
-                </Link>
-              </div>
-            </div>
-          );
-        })}
+          <div className="mt-3 flex items-center justify-between">
+            <Link
+              to={`/sites/${site.id}`}
+              className="text-blue-700 hover:underline text-sm"
+            >
+              Detail
+            </Link>
+          </div>
+        </div>
       </section>
 
       <section className="bg-white border rounded-xl p-4 shadow-sm">
         <h4 className="font-semibold text-slate-800 mb-2">Ringkasan Terakhir</h4>
 
-        {(() => {
-          const waterLevelCm =
-            sites[0].mount_height_cm - lastReading.distance_cm;
+        {loading && (
+          <div className="text-sm text-slate-700">
+            Memuat data dari Google Sheets...
+          </div>
+        )}
 
-          return (
-            <div className="text-sm text-slate-700">
-              Tinggi Air <b>{waterLevelCm} cm</b> • Baterai {lastReading.battery_v} V •{" "}
-              {new Date(lastReading.ts).toLocaleString()}
-            </div>
-          );
-        })()}
+        {error && !loading && (
+          <div className="text-sm text-red-700">
+            Gagal memuat data: {error}
+          </div>
+        )}
+
+        {!loading && !error && waterLevelCm !== null && (
+          <div className="text-sm text-slate-700">
+            Tinggi Air <b>{waterLevelCm.toFixed(1)} cm</b> • Terakhir diperbarui{" "}
+            {lastTimeLabel}
+          </div>
+        )}
+
+        {!loading && !error && waterLevelCm === null && (
+          <div className="text-sm text-slate-700">
+            Belum ada data dari Google Sheets.
+          </div>
+        )}
       </section>
     </div>
   );
