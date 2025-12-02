@@ -18,9 +18,12 @@ export default function App() {
     <div className="min-h-screen bg-slate-50">
       <header className="border-b bg-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div className="font-semibold text-lg text-slate-800">Monitoring</div>
+          <div className="font-semibold text-lg text-slate-800">
+            SIH • Monitoring
+          </div>
           <nav className="ml-auto flex items-center gap-2">
             <NavLink to="/">Overview</NavLink>
+            <NavLink to="/riwayat">Riwayat</NavLink>
             {ENABLE_INV && <NavLink to="/inventaris">Inventaris</NavLink>}
           </nav>
         </div>
