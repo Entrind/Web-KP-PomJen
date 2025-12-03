@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusPill from "../components/StatusPill";
 
-// Jarak sensor -> dasar (H) dalam 
-// Ubah sesuai jarak riil pemasangan sensor
+// Jarak sensor -> dasar (H) dalam cm
 const sites = [
   { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 220 }
 ];
@@ -11,6 +10,7 @@ const sites = [
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
+// ✅ PARSE SEBAGAI WAKTU LOKAL, ABAIKAN EPOCH
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
@@ -18,31 +18,32 @@ function parseSheetCsv(text) {
   return lines
     .map((line) => {
       const cols = line.split(",");
-      if (cols.length < 4) return null;
+      if (cols.length < 3) return null;
 
-      const datetimeStr = cols[0]?.trim();
-      const epochStr = cols[1]?.trim();
-      const distanceStr = cols[2]?.trim();
-      const status = cols[3]?.trim();
+      const datetimeStr = cols[0]?.trim();   // "01-12-2025 15:53:42"
+      const distanceStr = cols[2]?.trim();   // "217.4"
 
-      const epochSec = Number(epochStr);
       const distance_cm = Number(distanceStr.replace(",", "."));
       if (Number.isNaN(distance_cm)) return null;
 
-      let ts;
-      if (!Number.isNaN(epochSec) && epochSec > 0) {
-        ts = new Date(epochSec * 1000);
-      } else {
-        const [datePart, timePart] = (datetimeStr || "").split(" ");
-        if (!datePart || !timePart) return null;
-        const [day, month, year] = datePart.split("-");
-        ts = new Date(`${year}-${month}-${day}T${timePart}`);
-      }
+      // parse "dd-mm-yyyy HH:MM:SS" sebagai waktu lokal
+      const [datePart, timePart] = (datetimeStr || "").split(" ");
+      if (!datePart || !timePart) return null;
+      const [day, month, year] = datePart.split("-");
+      const [hour, minute, second] = timePart.split(":");
+
+      const ts = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      );
       if (Number.isNaN(ts.getTime())) return null;
 
       return {
         ts,
-        status,
         distance_cm,
       };
     })

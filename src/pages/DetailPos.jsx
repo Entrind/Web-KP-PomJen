@@ -11,7 +11,6 @@ import {
 } from "recharts";
 
 // Jarak sensor -> dasar (H) dalam cm
-// Ubah sesuai jarak riil pemasangan sensor
 const MOUNT_HEIGHT_CM = 220;
 
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
@@ -30,6 +29,7 @@ const statusLabelMap = {
   siaga: "Siaga",
 };
 
+// ✅ PARSE DATETIME LOKAL, ABAIKAN EPOCH
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
@@ -40,22 +40,24 @@ function parseSheetCsv(text) {
       if (cols.length < 3) return null;
 
       const datetimeStr = cols[0]?.trim();   // "01-12-2025 15:53:42"
-      const epochStr = cols[1]?.trim();      // "1764604422"
       const distanceStr = cols[2]?.trim();   // "217.4"
 
-      const epochSec = Number(epochStr);
       const distance_cm = Number(distanceStr.replace(",", "."));
       if (Number.isNaN(distance_cm)) return null;
 
-      let ts;
-      if (!Number.isNaN(epochSec) && epochSec > 0) {
-        ts = new Date(epochSec * 1000);
-      } else {
-        const [datePart, timePart] = (datetimeStr || "").split(" ");
-        if (!datePart || !timePart) return null;
-        const [day, month, year] = datePart.split("-");
-        ts = new Date(`${year}-${month}-${day}T${timePart}`);
-      }
+      const [datePart, timePart] = (datetimeStr || "").split(" ");
+      if (!datePart || !timePart) return null;
+      const [day, month, year] = datePart.split("-");
+      const [hour, minute, second] = timePart.split(":");
+
+      const ts = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      );
       if (Number.isNaN(ts.getTime())) return null;
 
       const water_level_cm = Math.max(MOUNT_HEIGHT_CM - distance_cm, 0);
@@ -104,7 +106,6 @@ export default function DetailPos() {
 
         if (!cancelled) {
           const latest30 = parsed.slice(-30);
-
           setRows(latest30);
         }
       } catch (err) {
