@@ -177,11 +177,14 @@ export default function DetailPos() {
                 <XAxis dataKey="timeLabel" />
                 <YAxis />
                 <Tooltip
-                  formatter={(value, name) =>
-                    name === "water_level_cm"
-                      ? [`${value} cm`, "Tinggi Air"]
-                      : [value, name]
-                  }
+                  formatter={(value, name) => {
+                    const num = Number(value);
+                    const formatted = !isNaN(num) ? num.toFixed(1) : value;
+
+                    return name === "water_level_cm"
+                      ? [`${formatted} cm`, "Tinggi Air"]
+                      : [formatted, name];
+                  }}
                   labelFormatter={(label) => `Waktu: ${label}`}
                 />
                 <Line
