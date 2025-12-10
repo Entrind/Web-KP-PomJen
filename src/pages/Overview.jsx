@@ -10,7 +10,6 @@ const sites = [
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
 
-// ✅ PARSE SEBAGAI WAKTU LOKAL, ABAIKAN EPOCH
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];

@@ -29,7 +29,6 @@ const statusLabelMap = {
   siaga: "Siaga",
 };
 
-// ✅ PARSE DATETIME LOKAL, ABAIKAN EPOCH
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
@@ -169,7 +168,7 @@ export default function DetailPos() {
           {/* Grafik tinggi air */}
           <div className="bg-white border rounded-xl p-4 shadow-sm h-[320px]">
             <h4 className="font-semibold text-slate-800 mb-2 text-sm">
-              Tinggi Air (cm) dari Google Sheets
+              Tinggi Air (cm)
             </h4>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>

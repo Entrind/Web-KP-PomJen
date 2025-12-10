@@ -73,7 +73,7 @@ export default function Riwayat() {
         const byDate = new Map();
 
         parsed.forEach((r) => {
-          const dateKey = r.ts.toISOString().slice(0, 10); // yyyy-mm-dd
+          const dateKey = r.ts.toISOString().slice(0, 10); 
           const dateLabel = r.ts.toLocaleDateString("id-ID", {
             day: "2-digit",
             month: "2-digit",
