@@ -102,6 +102,8 @@ export default function DetailPos() {
 
         const text = await res.text();
         const parsed = parseSheetCsv(text);
+        
+        parsed.sort((a, b) => a.ts - b.ts);
 
         if (!cancelled) {
           const latest30 = parsed.slice(-30);
