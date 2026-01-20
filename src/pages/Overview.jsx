@@ -4,7 +4,7 @@ import StatusPill from "../components/StatusPill";
 
 // Jarak sensor -> dasar (H) dalam cm
 const sites = [
-  { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 220 }
+  { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 80 }
 ];
 
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";

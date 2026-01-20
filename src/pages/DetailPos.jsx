@@ -11,7 +11,7 @@ import {
 } from "recharts";
 
 // Jarak sensor -> dasar (H) dalam cm
-const MOUNT_HEIGHT_CM = 220;
+const MOUNT_HEIGHT_CM = 80;
 
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;

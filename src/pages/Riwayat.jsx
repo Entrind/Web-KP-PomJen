@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-// Jarak sensor -> dasar (H) dalam 
-// Ubah sesuai jarak riil pemasangan sensor
-const MOUNT_HEIGHT_CM = 220;
+// Jarak sensor -> dasar (H) dalam cm
+// Samakan dengan Overview/Detail
+const MOUNT_HEIGHT_CM = 80;
 
 const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
 const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
@@ -12,6 +12,16 @@ function computeWaterLevel(distance_cm) {
   return Math.max(MOUNT_HEIGHT_CM - distance_cm, 0);
 }
 
+// ✅ dateKey berbasis tanggal lokal (bukan UTC)
+function getLocalDateKey(ts) {
+  const y = ts.getFullYear();
+  const m = String(ts.getMonth() + 1).padStart(2, "0");
+  const d = String(ts.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`; // yyyy-mm-dd
+}
+
+// ✅ Parse datetime kolom A sebagai waktu lokal; abaikan epoch
+// Format kolom: A=Datetime, B=epoch (abaikan), C=Sensor, D=Status (abaikan)
 function parseSheetCsv(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length === 0) return [];
@@ -21,34 +31,36 @@ function parseSheetCsv(text) {
       const cols = line.split(",");
       if (cols.length < 3) return null;
 
-      const datetimeStr = cols[0]?.trim();
-      const epochStr = cols[1]?.trim();
-      const distanceStr = cols[2]?.trim();
+      const datetimeStr = cols[0]?.trim(); // "06-01-2026 21:19:43"
+      const distanceStr = cols[2]?.trim(); // "47.2"
 
-      const epochSec = Number(epochStr);
       const distance_cm = Number(distanceStr.replace(",", "."));
       if (Number.isNaN(distance_cm)) return null;
 
-      let ts;
-      if (!Number.isNaN(epochSec) && epochSec > 0) {
-        ts = new Date(epochSec * 1000);
-      } else {
-        const [datePart, timePart] = (datetimeStr || "").split(" ");
-        if (!datePart || !timePart) return null;
-        const [day, month, year] = datePart.split("-");
-        ts = new Date(`${year}-${month}-${day}T${timePart}`);
-      }
+      const [datePart, timePart] = (datetimeStr || "").split(" ");
+      if (!datePart || !timePart) return null;
+
+      const [day, month, year] = datePart.split("-");
+      const [hour, minute, second] = timePart.split(":");
+
+      // ✅ buat Date lokal
+      const ts = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      );
       if (Number.isNaN(ts.getTime())) return null;
 
       const water_level_cm = computeWaterLevel(distance_cm);
-
       return { ts, distance_cm, water_level_cm };
     })
     .filter(Boolean);
 }
 
 export default function Riwayat() {
-  const [rows, setRows] = useState([]);
   const [dailyStats, setDailyStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -68,12 +80,14 @@ export default function Riwayat() {
         const parsed = parseSheetCsv(text);
         if (cancelled) return;
 
-        setRows(parsed);
+        // ✅ Optional: sort dulu agar stabil
+        parsed.sort((a, b) => a.ts - b.ts);
 
+        // ✅ Group per tanggal (lokal)
         const byDate = new Map();
 
         parsed.forEach((r) => {
-          const dateKey = r.ts.toISOString().slice(0, 10); // yyyy-mm-dd
+          const dateKey = getLocalDateKey(r.ts);
           const dateLabel = r.ts.toLocaleDateString("id-ID", {
             day: "2-digit",
             month: "2-digit",
@@ -96,6 +110,7 @@ export default function Riwayat() {
           }
         });
 
+        // ✅ 1 tanggal = 1 baris (unique by dateKey)
         const statsArray = Array.from(byDate.values()).sort((a, b) =>
           a.dateKey.localeCompare(b.dateKey)
         );
@@ -112,7 +127,7 @@ export default function Riwayat() {
 
     load();
 
-    // optional: auto-refresh tiap 5 menit
+    // auto-refresh tiap 5 menit
     const interval = setInterval(load, 300_000);
     return () => {
       cancelled = true;
