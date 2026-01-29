@@ -5,9 +5,9 @@ export default function StatusPill({ level = "normal" }) {
     siaga: "bg-red-100 text-red-700 border border-red-300",
   };
   const label = {
-    normal: "Normal",
-    waspada: "Waspada",
-    siaga: "Siaga",
+    normal: "NORMAL",
+    waspada: "WASPADA",
+    siaga: "SIAGA",
   };
   return (
     <span
