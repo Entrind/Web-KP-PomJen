@@ -14,7 +14,7 @@ const char* ssid = "Nama Wifi";
 const char* password = "Password Wifi";
 
 // GOOGLE WEBHOOK URL
-String webhook = "https://script.google.com/macros/s/AKfycbwGwH1AjqtK4e-8KenG3521D3qmeJL7CLdkxfa22M7OPOgB_vIrsNwJi_KSP8MQzB_Z9g/exec";
+String webhook = "Link Webhook/Apps Script";
 
 // RTC & NTP
 RTC_DS3231 rtc;
@@ -53,8 +53,8 @@ char fileName[32];
 #define BUZZER_FREQ_DANGER   3000
 
 // THRESHOLD STATUS 
-float warnLevel = 30;   //default: 70; test: 30 & dist sensor to ground 80 cm
-float dangerLevel = 20; //default: 30; test: 20 & dist sensor to ground 80 cm
+float warnLevel = 70;   //default: 70; test: 30 & dist sensor to ground 80 cm
+float dangerLevel = 30; //default: 30; test: 20 & dist sensor to ground 80 cm
 
 String getStatus(float d) {
   if (d < 0) return "NO DATA";
@@ -176,10 +176,10 @@ void updateFileName() {
   }
 }
 
-// SD INIT (lebih aman: set SPI pins eksplisit)
+// SD INIT 
 void initSD() {
-  SPI.begin(18, 19, 23, SD_CS);              // SCK=18, MISO=19, MOSI=23
-  sdReady = SD.begin(SD_CS, SPI, 4000000);   // 4 MHz lebih stabil untuk banyak modul
+  SPI.begin(18, 19, 23, SD_CS);              
+  sdReady = SD.begin(SD_CS, SPI, 4000000);   
 
   if (!sdReady) {
     Serial.println("SD MOUNT FAILED!");
