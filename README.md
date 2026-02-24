@@ -1,20 +1,77 @@
 # Web-KP-PomJen
 
-### Website Prototype Alat IoT Pengukur Tinggi Air
+### Sistem Monitoring Ketinggian Air Berbasis ESP32 dengan Web Dashboard
+Repositori ini merupakan implementasi sistem monitoring ketinggian air berbasis IoT yang terdiri dari dua komponen utama:
+1. Prototype Alat (ESP32 + Sensor Ultrasonik)
+2. Web Dashboard (React + Vite)
 
-# React + Vite
+Sistem dirancang untuk melakukan:
+- Pengukuran tinggi air
+- Logging data ke SD Card
+- Sinkronisasi waktu via NTP & RTC
+- Pengiriman data ke Google Sheets melalui Webhook
+- Visualisasi data melalui Web Dashboard
+---
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Prototype Alat (Ringkasan)
+Prototype menggunakan:
+- ESP32
+- Sensor Ultrasonik A02YYUW (UART)
+- RTC DS3231
+- SD Card Module
+- WiFi untuk pengiriman data dan sinkronisasi waktu (NTP)
 
-Currently, two official plugins are available:
+Fitur Utama:
+- Logging interval adaptif
+- Auto-reconnect WiFi
+- Sinkronisasi waktu NTP
+- Pengiriman data ke Google Sheets via Webhook
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Detail wiring, flowchart, dan setup Google Sheets dapat dilihat di folder [Prototype_Alat](https://github.com/Entrind/Web-KP-PomJen/tree/main/Prototype_Alat)
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Web Dashboard
+Web dashboard dibangun menggunakan:
+- React
+- Vite
+- Chart/visualization library
 
-## Expanding the ESLint configuration
+Berfungsi untuk:
+- Menampilkan data ketinggian air
+- Menampilkan status kondisi
+- Visualisasi grafik historis
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Cara Menjalankan Web Dashboard
+1. Clone Repository
+
+   ```
+   git clone https://github.com/Entrind/Web-KP-PomJen.git
+   cd Web-KP-PomJen
+   ```
+2. Install Dependency
+   ```
+   npm install
+   ```
+3. Jalankan Development Server
+   ```
+   npm run dev
+   ```
+4. Akses di Browser
+   ```
+   http://localhost:5173
+   ```
+---
+
+## Integrasi Data (Google Sheets)
+Prototype alat mengirim data ke Google Sheets menggunakan Google Apps Script (Webhook). <br>
+Langkah setup lengkap tersedia [disini](https://github.com/Entrind/Web-KP-PomJen/blob/main/Prototype_Alat/README.md).<br>
+Alur integrasi:
+1. Buat Google Sheet
+2. Tambahkan Apps Script
+3. Deploy sebagai Web App
+4. Masukkan Webhook URL ke kode ESP32
+5. Data otomatis masuk ke Google Sheets jika ada WiFi
+6. Web dashboard membaca data tersebut
+---
