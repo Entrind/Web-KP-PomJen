@@ -4,7 +4,7 @@ export const DEFAULT_SITES = [
     name: "Pos 1",
     river_name: "Baskom Mandi",
     sheet_id: "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE",
-    gid: "0",
+    gid: "1838368434",
     mount_height_cm: 80,
   },
   {
@@ -12,7 +12,7 @@ export const DEFAULT_SITES = [
     name: "Pos 2",
     river_name: "Sungai",
     sheet_id: "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE",
-    gid: "1838368434",
+    gid: "0",
     mount_height_cm: 300,
   },
 ];
