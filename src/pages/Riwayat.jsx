@@ -155,7 +155,7 @@ export default function Riwayat() {
 
           return (
             <div key={site.id} className="grid gap-4">
-              <h4 className="text-slate-400 font-medium">
+              <h4 className="font-semibold text-slate-400 font-medium">
                 {site.name} — {site.river_name}
               </h4>
 
