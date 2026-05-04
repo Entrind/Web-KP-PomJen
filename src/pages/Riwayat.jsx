@@ -1,25 +1,12 @@
 import { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  Legend,
+  LineChart, Line, XAxis, YAxis, Tooltip,
+  CartesianGrid, ResponsiveContainer, Legend,
 } from "recharts";
+import { loadSites, getSheetUrl } from "../config/sites";
 
-// CONFIG 
-const MOUNT_HEIGHT_CM = 80;
-const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
-const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
-
-// HELPERS
-function computeWaterLevel(distance_cm) {
-  return Math.max(MOUNT_HEIGHT_CM - distance_cm, 0);
-}
-
+// ================= HELPERS =================
 function getLocalDateKey(ts) {
   const y = ts.getFullYear();
   const m = String(ts.getMonth() + 1).padStart(2, "0");
@@ -27,7 +14,7 @@ function getLocalDateKey(ts) {
   return `${y}-${m}-${d}`;
 }
 
-function parseSheetCsv(text) {
+function parseSheetCsv(text, mountHeight) {
   const lines = text.trim().split(/\r?\n/);
 
   return lines
@@ -48,19 +35,14 @@ function parseSheetCsv(text) {
       const [hour, minute, second] = timePart.split(":");
 
       const ts = new Date(
-        Number(year),
-        Number(month) - 1,
-        Number(day),
-        Number(hour),
-        Number(minute),
-        Number(second)
+        Number(year), Number(month) - 1, Number(day),
+        Number(hour), Number(minute), Number(second)
       );
-
       if (Number.isNaN(ts.getTime())) return null;
 
       return {
         ts,
-        water_level_cm: computeWaterLevel(distance_cm),
+        water_level_cm: Math.max(mountHeight - distance_cm, 0),
       };
     })
     .filter(Boolean);
@@ -68,9 +50,14 @@ function parseSheetCsv(text) {
 
 // ================= COMPONENT =================
 export default function Riwayat() {
-  const [dailyStats, setDailyStats] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { id }      = useParams();   // optional — kalau ada, filter ke 1 pos
+  const allSites    = loadSites();
+  const activeSites = id ? allSites.filter((s) => s.id === id) : allSites;
+
+  // { [site.id]: DailyStat[] }
+  const [allStats, setAllStats]   = useState({});
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState("");
 
   useEffect(() => {
     async function load() {
@@ -78,51 +65,53 @@ export default function Riwayat() {
         setLoading(true);
         setError("");
 
-        const res = await fetch(SHEET_CSV_URL);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const results = await Promise.allSettled(
+          activeSites.map(async (site) => {
+            const res = await fetch(getSheetUrl(site));
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const text = await res.text();
-        const parsed = parseSheetCsv(text);
+            const text   = await res.text();
+            const parsed = parseSheetCsv(text, site.mount_height_cm)
+              .sort((a, b) => a.ts - b.ts);
 
-        parsed.sort((a, b) => a.ts - b.ts);
+            const byDate = new Map();
+            parsed.forEach((r) => {
+              const key   = getLocalDateKey(r.ts);
+              const label = r.ts.toLocaleDateString("id-ID", {
+                day: "2-digit", month: "2-digit", year: "numeric",
+              });
+              const w = r.water_level_cm;
 
-        const byDate = new Map();
-
-        parsed.forEach((r) => {
-          const dateKey = getLocalDateKey(r.ts);
-          const dateLabel = r.ts.toLocaleDateString("id-ID", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          });
-
-          const water = r.water_level_cm;
-          const existing = byDate.get(dateKey);
-
-          if (!existing) {
-            byDate.set(dateKey, {
-              dateKey,
-              dateLabel,
-              minWater: water,
-              maxWater: water,
-              sumWater: water,
-              count: 1,
-              avgWater: water,
+              if (!byDate.has(key)) {
+                byDate.set(key, {
+                  dateKey: key, dateLabel: label,
+                  minWater: w, maxWater: w, sumWater: w, count: 1, avgWater: w,
+                });
+              } else {
+                const e = byDate.get(key);
+                e.minWater  = Math.min(e.minWater, w);
+                e.maxWater  = Math.max(e.maxWater, w);
+                e.sumWater += w;
+                e.count    += 1;
+                e.avgWater  = e.sumWater / e.count;
+              }
             });
-          } else {
-            existing.minWater = Math.min(existing.minWater, water);
-            existing.maxWater = Math.max(existing.maxWater, water);
-            existing.sumWater += water;
-            existing.count += 1;
-            existing.avgWater = existing.sumWater / existing.count;
-          }
-        });
 
-        setDailyStats(
-          Array.from(byDate.values()).sort((a, b) =>
-            a.dateKey.localeCompare(b.dateKey)
-          )
+            return {
+              id: site.id,
+              stats: Array.from(byDate.values()).sort((a, b) =>
+                a.dateKey.localeCompare(b.dateKey)
+              ),
+            };
+          })
         );
+
+        const map = {};
+        results.forEach((r, idx) => {
+          const siteId = activeSites[idx].id;
+          map[siteId] = r.status === "fulfilled" ? r.value.stats : [];
+        });
+        setAllStats(map);
       } catch (err) {
         setError(err.message || "Gagal mengambil data");
       } finally {
@@ -131,86 +120,25 @@ export default function Riwayat() {
     }
 
     load();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   return (
-    <div className="grid gap-6">
-      <h3 className="font-semibold text-slate-50 text-lg">
-        Riwayat Tinggi Air Harian
-      </h3>
-
-      {/*  GRAPH  */}
-      {!loading && !error && dailyStats.length > 0 && (
-        <div className="bg-white border rounded-xl p-4 shadow-sm h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyStats}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dateLabel" />
-              <YAxis unit=" cm" />
-              <Tooltip
-                formatter={(v) => [`${v.toFixed(1)} cm`, ""]}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="minWater"
-                name="Minimum"
-                stroke="#2563eb"   // biru
-                strokeWidth={2}
-                dot={false}
-              />
-
-              <Line
-                type="monotone"
-                dataKey="avgWater"
-                name="Rata-rata"
-                stroke="#16a34a"   // hijau
-                strokeWidth={2}
-                dot={false}
-                strokeDasharray="4 4"
-              />
-
-              <Line
-                type="monotone"
-                dataKey="maxWater"
-                name="Maksimum"
-                stroke="#dc2626"   // merah
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      {/* TABLE */}
-      {!loading && !error && dailyStats.length > 0 && (
-        <div className="bg-white border rounded-xl p-4 shadow-sm overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-slate-500">
-              <tr>
-                <th>Tanggal</th>
-                <th className="text-right">Minimum (cm)</th>
-                <th className="text-right">Maksimum (cm)</th>
-                <th className="text-right">Rata-rata (cm)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dailyStats.map((d) => (
-                <tr key={d.dateKey} className="border-t">
-                  <td className="py-1.5">{d.dateLabel}</td>
-                  <td className="text-right">{d.minWater.toFixed(1)}</td>
-                  <td className="text-right">{d.maxWater.toFixed(1)}</td>
-                  <td className="text-right">{d.avgWater.toFixed(1)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+    <div className="grid gap-8">
+      <div className="flex items-center gap-3">
+        {id && (
+          <Link to="/riwayat" className="text-blue-200 hover:underline text-sm">
+            ← Semua Pos
+          </Link>
+        )}
+        <h3 className="font-semibold text-slate-50 text-lg">
+          Riwayat Tinggi Air Harian
+          {id && ` — ${allSites.find((s) => s.id === id)?.name ?? id}`}
+        </h3>
+      </div>
 
       {loading && (
-        <div className="bg-white border rounded-xl p-4 text-sm">
+        <div className="bg-white border rounded-xl p-4 text-sm text-slate-500">
           Memuat data...
         </div>
       )}
@@ -220,6 +148,67 @@ export default function Riwayat() {
           {error}
         </div>
       )}
+
+      {!loading && !error &&
+        activeSites.map((site) => {
+          const dailyStats = allStats[site.id] ?? [];
+
+          return (
+            <div key={site.id} className="grid gap-4">
+              <h4 className="text-slate-200 font-medium">
+                {site.name} — {site.river_name}
+              </h4>
+
+              {dailyStats.length === 0 ? (
+                <div className="bg-white border rounded-xl p-4 text-sm text-slate-500">
+                  Tidak ada data untuk pos ini.
+                </div>
+              ) : (
+                <>
+                  {/* CHART */}
+                  <div className="bg-white border rounded-xl p-4 shadow-sm h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={dailyStats}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="dateLabel" />
+                        <YAxis unit=" cm" />
+                        <Tooltip formatter={(v) => [`${v.toFixed(1)} cm`, ""]} />
+                        <Legend />
+                        <Line type="monotone" dataKey="minWater" name="Minimum"   stroke="#2563eb" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="avgWater" name="Rata-rata" stroke="#16a34a" strokeWidth={2} dot={false} strokeDasharray="4 4" />
+                        <Line type="monotone" dataKey="maxWater" name="Maksimum"  stroke="#dc2626" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* TABLE */}
+                  <div className="bg-white border rounded-xl p-4 shadow-sm overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead className="text-left text-slate-500">
+                        <tr>
+                          <th>Tanggal</th>
+                          <th className="text-right">Minimum (cm)</th>
+                          <th className="text-right">Maksimum (cm)</th>
+                          <th className="text-right">Rata-rata (cm)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...dailyStats].reverse().map((d) => (
+                          <tr key={d.dateKey} className="border-t">
+                            <td className="py-1.5">{d.dateLabel}</td>
+                            <td className="text-right">{d.minWater.toFixed(1)}</td>
+                            <td className="text-right">{d.maxWater.toFixed(1)}</td>
+                            <td className="text-right">{d.avgWater.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 }

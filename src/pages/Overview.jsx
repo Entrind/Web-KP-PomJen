@@ -2,19 +2,11 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import StatusPill from "../components/StatusPill";
 import AvailabilityCard from "../components/AvailabilityCard";
+import { loadSites, getSheetUrl } from "../config/sites";
 
-
-// Jarak sensor -> dasar (H) dalam cm
-const sites = [
-  { id: "ESP32", name: "ESP32", river_name: "Baskom Mandi", mount_height_cm: 80 },
-];
-
-const SHEET_ID = "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE";
-const SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
-
-function parseSheetCsv(text) {
+// ================= HELPERS =================
+function parseSheetCsv(text, mountHeight) {
   const lines = text.trim().split(/\r?\n/);
-  if (lines.length === 0) return [];
 
   return lines
     .map((line) => {
@@ -34,45 +26,33 @@ function parseSheetCsv(text) {
       const [hour, minute, second] = timePart.split(":");
 
       const ts = new Date(
-        Number(year),
-        Number(month) - 1,
-        Number(day),
-        Number(hour),
-        Number(minute),
-        Number(second)
+        Number(year), Number(month) - 1, Number(day),
+        Number(hour), Number(minute), Number(second)
       );
-
       if (Number.isNaN(ts.getTime())) return null;
 
-      return { ts, distance_cm };
+      return {
+        ts,
+        distance_cm,
+        water_level_cm: Math.max(mountHeight - distance_cm, 0),
+      };
     })
     .filter(Boolean);
 }
 
 function computeDataAvailability(records) {
-  if (!records || records.length === 0) {
-    return { percent: 0, daysWithData: 0, totalDays: 0 };
-  }
+  if (!records?.length) return { percent: 0, daysWithData: 0, totalDays: 0 };
 
-  const daySet = new Set(
-    records.map((r) => r.ts.toISOString().slice(0, 10))
-  );
-
+  const daySet = new Set(records.map((r) => r.ts.toISOString().slice(0, 10)));
   const sorted = [...records].sort((a, b) => a.ts - b.ts);
-
-  const firstDay = new Date(sorted[0].ts);
-  const start = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate());
-  const end = new Date();
-
-  const totalDays =
-    Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-
+  const start   = new Date(sorted[0].ts);
+  start.setHours(0, 0, 0, 0);
+  const end     = new Date();
+  const totalDays   = Math.floor((end - start) / 86_400_000) + 1;
   const daysWithData = daySet.size;
-  const percent =
-    totalDays > 0 ? (daysWithData / totalDays) * 100 : 0;
 
   return {
-    percent: Math.min(percent, 100),
+    percent: Math.min((daysWithData / totalDays) * 100, 100),
     daysWithData,
     totalDays,
   };
@@ -85,131 +65,141 @@ function getStatusLevel(waterLevel, mountHeight) {
   return "siaga";
 }
 
+// ================= COMPONENT =================
 export default function Overview() {
-  const [lastReading, setLastReading] = useState(null);
-  const [availability, setAvailability] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const sites = loadSites();
+
+  // { [site.id]: { waterLevelCm, statusLevel, lastTimeLabel, availability, error } }
+  const [siteData, setSiteData] = useState({});
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      try {
-        setLoading(true);
-        setError("");
+    async function loadAll() {
+      setLoading(true);
 
-        const res = await fetch(SHEET_CSV_URL);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const results = await Promise.allSettled(
+        sites.map(async (site) => {
+          const res = await fetch(getSheetUrl(site));
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-        const text = await res.text();
-        const parsed = parseSheetCsv(text).sort(
-          (a, b) => a.ts - b.ts
-        );
+          const text   = await res.text();
+          const parsed = parseSheetCsv(text, site.mount_height_cm)
+            .sort((a, b) => a.ts - b.ts);
 
-        if (!cancelled) {
-          setLastReading(parsed.at(-1) || null);
-          setAvailability(computeDataAvailability(parsed));
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err.message || "Gagal mengambil data dari Google Sheets");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+          const last = parsed.at(-1);
+          if (!last) throw new Error("Tidak ada data");
+
+          const waterLevelCm = last.water_level_cm;
+
+          return {
+            id: site.id,
+            waterLevelCm,
+            statusLevel:   getStatusLevel(waterLevelCm, site.mount_height_cm),
+            lastTimeLabel: last.ts.toLocaleString("id-ID"),
+            availability:  computeDataAvailability(parsed),
+            error: null,
+          };
+        })
+      );
+
+      if (!cancelled) {
+        const map = {};
+        results.forEach((result, idx) => {
+          const id = sites[idx].id;
+          if (result.status === "fulfilled") {
+            map[id] = result.value;
+          } else {
+            map[id] = { error: result.reason?.message || "Gagal memuat" };
+          }
+        });
+        setSiteData(map);
+        setLoading(false);
       }
     }
 
-    load();
-    const interval = setInterval(load, 60_000);
-
+    loadAll();
+    const interval = setInterval(loadAll, 60_000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const site = sites[0];
-
-  let waterLevelCm = null;
-  let statusLevel = "normal";
-  let lastTimeLabel = "";
-
-  if (lastReading) {
-    waterLevelCm = Math.max(
-      site.mount_height_cm - lastReading.distance_cm,
-      0
-    );
-    statusLevel = getStatusLevel(
-      waterLevelCm,
-      site.mount_height_cm
-    );
-    lastTimeLabel = lastReading.ts.toLocaleString("id-ID");
-  }
 
   return (
     <div className="grid gap-6">
-      <section className="grid md:grid-cols-2 gap-4">
-        {/* INFO CARD */}
-        <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
-          {/* ===== TOP ===== */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-slate-800">{site.name}</h3>
-              {!loading && !error && waterLevelCm !== null && (
-                <StatusPill level={statusLevel} />
-              )}
-              <div className="ml-auto text-xs text-slate-500">
-                ID: {site.id}
+      {loading && (
+        <div className="bg-white border rounded-xl p-4 text-sm text-slate-500">
+          Memuat data semua pos...
+        </div>
+      )}
+
+      {!loading &&
+        sites.map((site) => {
+          const d = siteData[site.id];
+
+          return (
+            <section key={site.id} className="grid md:grid-cols-2 gap-4">
+              {/* INFO CARD */}
+              <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-col justify-between">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-slate-800">{site.name}</h3>
+                    {d && !d.error && (
+                      <StatusPill level={d.statusLevel} />
+                    )}
+                    <div className="ml-auto text-xs text-slate-500">
+                      ID: {site.id}
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-slate-500">
+                    Lokasi: {site.river_name}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Tinggi Dudukan: {site.mount_height_cm} cm
+                  </div>
+
+                  <div className="text-sm text-slate-700">
+                    {d?.error ? (
+                      <span className="text-red-500">{d.error}</span>
+                    ) : d ? (
+                      <>Tinggi Air: <b>{d.waterLevelCm.toFixed(1)} cm</b></>
+                    ) : null}
+                  </div>
+
+                  {d && !d.error && (
+                    <div className="text-xs text-slate-400">
+                      Update: {d.lastTimeLabel}
+                    </div>
+                  )}
+                </div>
+
+                <Link
+                  to={`/sites/${site.id}`}
+                  className="text-blue-700 hover:underline text-sm w-fit mt-4"
+                >
+                  Detail →
+                </Link>
               </div>
-            </div>
 
-            <div className="text-xs text-slate-500">
-              Lokasi: {site.river_name}
-            </div>
-
-            <div className="text-sm text-slate-700">
-              {loading && "Memuat data..."}
-              {!loading && !error && waterLevelCm !== null && (
-                <>Tinggi Air: <b>{waterLevelCm.toFixed(1)} cm</b></>
-              )}
-            </div>
-          </div>
-
-          {/* ===== BOTTOM ===== */}
-          <Link
-            to={`/sites/${site.id}`}
-            className="text-blue-700 hover:underline text-sm w-fit mt-4"
-          >
-            Detail
-          </Link>
-        </div>
-
-        {/* GAUGE CARD */}
-        <div className="bg-white border rounded-xl p-4 shadow-sm h-full flex flex-col">
-          <h4 className="text-sm font-medium text-slate-600 mb-2">
-            Ketersediaan Data
-          </h4>
-
-          {availability && (
-            <AvailabilityCard
-              daysWithData={availability.daysWithData}
-              totalDays={availability.totalDays}
-            />
-          )}
-        </div>
-      </section>
-
-      <section className="bg-white border rounded-xl p-4 shadow-sm">
-        <h4 className="font-semibold text-slate-800 mb-2">Summary</h4>
-
-        {!loading && !error && waterLevelCm !== null && (
-          <div className="text-sm text-slate-700">
-            Tinggi Air <b>{waterLevelCm.toFixed(1)} cm</b> • Terakhir
-            diperbarui {lastTimeLabel}
-          </div>
-        )}
-      </section>
+              {/* AVAILABILITY CARD */}
+              <div className="bg-white border rounded-xl p-4 shadow-sm flex flex-col">
+                <h4 className="text-sm font-medium text-slate-600 mb-2">
+                  Ketersediaan Data
+                </h4>
+                {d?.availability && (
+                  <AvailabilityCard
+                    daysWithData={d.availability.daysWithData}
+                    totalDays={d.availability.totalDays}
+                  />
+                )}
+              </div>
+            </section>
+          );
+        })}
     </div>
   );
 }

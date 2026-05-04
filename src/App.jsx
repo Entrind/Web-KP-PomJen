@@ -1,7 +1,9 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 export default function App() {
-  const ENABLE_INV = import.meta.env.VITE_ENABLE_INVENTORY === "true";
+  const ENABLE_INV   = import.meta.env.VITE_ENABLE_INVENTORY === "true";
+  const ENABLE_ADMIN = import.meta.env.VITE_ENABLE_ADMIN === "true";
+
   const { pathname } = useLocation();
 
   const NavLink = ({ to, children }) => (
@@ -33,7 +35,8 @@ export default function App() {
           <nav className="ml-auto flex items-center gap-2">
             <NavLink to="/">Overview</NavLink>
             <NavLink to="/riwayat">Riwayat</NavLink>
-            {ENABLE_INV && <NavLink to="/inventaris">Inventaris</NavLink>}
+            {ENABLE_INV   && <NavLink to="/inventaris">Inventaris</NavLink>}
+            {ENABLE_ADMIN && <NavLink to="/admin">⚙ Konfigurasi</NavLink>}
           </nav>
         </div>
       </header>

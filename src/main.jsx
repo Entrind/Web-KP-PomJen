@@ -6,6 +6,7 @@ import App from "./App.jsx";
 import Overview from "./pages/Overview.jsx";
 import DetailPos from "./pages/DetailPos.jsx";
 import Riwayat from "./pages/Riwayat.jsx";
+import AdminConfig from "./pages/AdminConfig";
 
 const ENABLE_INV = import.meta.env.VITE_ENABLE_INVENTORY === "true";
 const qc = new QueryClient();
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
       { index: true, element: <Overview /> },
       { path: "sites/:id", element: <DetailPos /> },
       { path: "riwayat", element: <Riwayat /> },
+      { path: "/admin", element: <AdminConfig /> },
       ...(ENABLE_INV ? [{ path: "inventaris", element: <Inventaris /> }] : []),
     ],
   },
