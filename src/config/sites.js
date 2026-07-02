@@ -13,7 +13,7 @@ export const DEFAULT_SITES = [
     river_name: "Sungai",
     sheet_id: "1D9hhtOm1HAewYi0s_PXx1Q2AczKHHkBOS4gy7xt5PVE",
     gid: "0",
-    mount_height_cm: 300,
+    mount_height_cm: 400,
   },
 ];
 
